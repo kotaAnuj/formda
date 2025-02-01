@@ -226,7 +226,7 @@ def main():
                         st.error("Please enter both email and password")
                     else:
                         with st.spinner("Logging in..."):
-                            result = firebase_sign_in(email, password)
+                            result = firebase_admin(email, password)
                             if result and 'idToken' in result:
                                 st.session_state.user = {
                                     'email': result['email'],
