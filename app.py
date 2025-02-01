@@ -2,16 +2,17 @@ import os
 import streamlit as st
 import google.generativeai as genai
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
-from google.oauth2 import service_account
-import requests
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+import pickle
 import json
 from datetime import datetime
+from pathlib import Path
 
-# Firebase Configuration
+# Configuration
 FIREBASE_CONFIG = {
     "type": "service_account",
     "project_id": "nothing-d3af4",
@@ -26,20 +27,24 @@ FIREBASE_CONFIG = {
     "universe_domain": "googleapis.com"
 }
 
-# Firebase Web Config
-FIREBASE_WEB_CONFIG = {
-    "apiKey": "AIzaSyC6YllFBzRnUjFfIJhGjIkwMlGELuKs9YQ",
-    "authDomain": "nothing-d3af4.firebaseapp.com",
-    "databaseURL": "https://nothing-d3af4-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "projectId": "nothing-d3af4",
-    "storageBucket": "nothing-d3af4.firebasestorage.app",
-    "messagingSenderId": "7155955115",
-    "appId": "1:7155955115:web:62e7e9a543ba2f77dc8eee",
-    "measurementId": "G-JNLGNYK8DM"
+# OAuth 2.0 Client Configuration
+CLIENT_CONFIG = {
+    "web": {
+        "client_id": "116989293124035568174.apps.googleusercontent.com",
+        "project_id": "nothing-d3af4",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "GOCSPX-your-client-secret",
+        "redirect_uris": ["http://localhost:8501/"],
+        "javascript_origins": ["http://localhost:8501"]
+    }
 }
 
-# Google API configuration
+# Google API Scopes
 SCOPES = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
     'https://www.googleapis.com/auth/forms.body',
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
@@ -59,32 +64,38 @@ def initialize_gemini():
     genai.configure(api_key="AIzaSyDpaOZq0jE6d4SdTpf1GyNk_lLkB75Kn_8")
     return genai.GenerativeModel('gemini-pro')
 
-def get_google_services():
-    """Initialize Google services using service account"""
-    credentials = service_account.Credentials.from_service_account_info(
-        FIREBASE_CONFIG,
-        scopes=SCOPES
-    )
-    
-    forms_service = build('forms', 'v1', credentials=credentials)
-    sheets_service = build('sheets', 'v4', credentials=credentials)
-    return forms_service, sheets_service
+def get_google_auth():
+    """Handle Google OAuth authentication"""
+    creds = None
+    token_file = 'token.pickle'
 
-def firebase_sign_in(email, password):
-    """Firebase email/password authentication"""
-    try:
-        url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_CONFIG['apiKey']}"
-        data = {
-            "email": email,
-            "password": password,
-            "returnSecureToken": True
-        }
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Authentication failed: {str(e)}")
-        return None
+    # Check if token file exists
+    if Path(token_file).exists():
+        with open(token_file, 'rb') as token:
+            creds = pickle.load(token)
+
+    # Check if credentials are valid
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_config(
+                CLIENT_CONFIG, SCOPES,
+                redirect_uri=CLIENT_CONFIG['web']['redirect_uris'][0]
+            )
+            creds = flow.run_local_server(port=8501)
+
+        # Save credentials
+        with open(token_file, 'wb') as token:
+            pickle.dump(creds, token)
+
+    return creds
+
+def get_user_info(credentials):
+    """Get user information from Google"""
+    service = build('oauth2', 'v2', credentials=credentials)
+    user_info = service.userinfo().get().execute()
+    return user_info
 
 def create_google_form(service, title, questions):
     """Create a Google Form with error handling"""
@@ -121,6 +132,14 @@ def create_google_form(service, title, questions):
                 body={"requests": requests}
             ).execute()
         
+        # Make the form public
+        drive_service = build('drive', 'v3', credentials=service._credentials)
+        drive_service.permissions().create(
+            fileId=result["formId"],
+            body={"role": "reader", "type": "anyone"},
+            fields="id"
+        ).execute()
+        
         return f"https://docs.google.com/forms/d/{result['formId']}/edit"
     except Exception as e:
         st.error(f"Error creating form: {str(e)}")
@@ -153,11 +172,18 @@ def create_google_sheet(service, title, headers):
                 body=body
             ).execute()
         
+        # Make the sheet public
+        drive_service = build('drive', 'v3', credentials=service._credentials)
+        drive_service.permissions().create(
+            fileId=spreadsheet['spreadsheetId'],
+            body={"role": "writer", "type": "anyone"},
+            fields="id"
+        ).execute()
+        
         return f"https://docs.google.com/spreadsheets/d/{spreadsheet['spreadsheetId']}/edit"
     except Exception as e:
         st.error(f"Error creating sheet: {str(e)}")
         return None
-
 def main():
     st.set_page_config(
         page_title="Complete Workspace Creator",
