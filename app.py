@@ -3,15 +3,15 @@ import streamlit as st
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, auth
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
 from google.oauth2 import service_account
+from google_auth_oauthlib.flow import Flow
 import requests
 import json
 from datetime import datetime
+from urllib.parse import urlencode
 
-# ===================== CONFIGURATIONS =====================
+
 FIREBASE_CONFIG = {
     "type": "service_account",
     "project_id": "nothing-d3af4",
@@ -64,11 +64,30 @@ FIREBASE_WEB_CONFIG = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-GOOGLE_CREDENTIALS = FIREBASE_CONFIG.copy()
-GEMINI_API_KEY = "AIzaSyDpaOZq0jE6d4SdTpf1GyNk_lLkB75Kn_8"
-SCOPES = ['https://www.googleapis.com/auth/forms.body', 'https://www.googleapis.com/auth/spreadsheets']
+GOOGLE_OAUTH_CONFIG = {
+    "web": {
+        "client_id": "YOUR_GOOGLE_OAUTH_CLIENT_ID",
+        "project_id": "nothing-d3af4",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "YOUR_GOOGLE_OAUTH_CLIENT_SECRET",
+        "redirect_uris": ["https://formda.streamlit.app/"],
+        "javascript_origins": ["https://formda.streamlit.app"]
+    }
+}
 
-# ===================== INITIALIZATION =====================
+GEMINI_API_KEY = "AIzaSyDpaOZq0jE6d4SdTpf1GyNk_lLkB75Kn_8"
+
+SCOPES = [
+    'https://www.googleapis.com/auth/forms.body',
+    'https://www.googleapis.com/auth/spreadsheets',
+    'openid',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile'
+]
+
+
 @st.cache_resource
 def initialize_firebase():
     if not firebase_admin._apps:
@@ -81,116 +100,142 @@ def initialize_gemini():
     genai.configure(api_key=GEMINI_API_KEY)
     return genai.GenerativeModel('gemini-pro')
 
-def get_google_services():
-    credentials = service_account.Credentials.from_service_account_info(
-        GOOGLE_CREDENTIALS,
-        scopes=SCOPES
-    )
-    forms_service = build('forms', 'v1', credentials=credentials)
-    sheets_service = build('sheets', 'v4', credentials=credentials)
-    return forms_service, sheets_service
 
-# ===================== FIREBASE AUTH =====================##
+def get_google_flow():
+    return Flow.from_client_config(
+        client_config=GOOGLE_OAUTH_CONFIG,
+        scopes=SCOPES,
+        redirect_uri=GOOGLE_OAUTH_CONFIG['web']['redirect_uris'][0]
+    )
+
+def google_sign_in():
+    flow = get_google_flow()
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    st.markdown(f"""
+        <a href="{auth_url}" target="_self" style="
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #4285F4;
+            color: white;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+        ">Sign in with Google</a>
+    """, unsafe_allow_html=True)
+
+def handle_oauth_callback():
+    flow = get_google_flow()
+    code = st.experimental_get_query_params().get('code')
+    if code:
+        try:
+            flow.fetch_token(code=code[0])
+            id_token = flow.credentials.id_token
+            decoded_token = auth.verify_id_token(id_token)
+            user = auth.get_user(decoded_token['uid'])
+            st.session_state.user = {
+                'uid': user.uid,
+                'email': user.email,
+                'name': user.display_name,
+                'idToken': id_token,
+                'expires': flow.credentials.expiry.timestamp()
+            }
+            # Clear query params after successful login
+            st.experimental_set_query_params()
+        except Exception as e:
+            st.error(f"Google authentication failed: {str(e)}")
+            st.session_state.user = None
+
 
 def firebase_sign_in(email, password):
     try:
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_CONFIG['apiKey']}"
-        data = {
+        response = requests.post(url, json={
             "email": email,
             "password": password,
             "returnSecureToken": True
-        }
-        response = requests.post(url, json=data)
+        })
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.HTTPError as e:
-        error_data = json.loads(e.response.text)
-        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
-        st.error(f"Authentication failed: {error_msg}")
-        if error_msg == "INVALID_LOGIN_CREDENTIALS":
-            st.error("Double-check the email and password. Ensure the user exists in Firebase.")
-        return None
     except Exception as e:
-        st.error(f"Connection error: {str(e)}")
+        st.error(f"Login failed: {str(e)}")
         return None
 
-# ===================== GOOGLE WORKSPACE =====================
+
+def get_google_services():
+    creds = service_account.Credentials.from_service_account_info(
+        FIREBASE_CONFIG,
+        scopes=SCOPES
+    )
+    return (
+        build('forms', 'v1', credentials=creds),
+        build('sheets', 'v4', credentials=creds)
+    )
+
 def create_google_form(service, title, questions):
-    try:
-        form = {"info": {"title": title, "documentTitle": title}}
-        result = service.forms().create(body=form).execute()
-        
-        requests = []
-        for i, question in enumerate(questions):
-            requests.append({
-                "createItem": {
-                    "item": {
-                        "title": question["text"],
-                        "questionItem": {
-                            "question": {
-                                "required": question.get("required", False),
-                                "textQuestion": {}
-                            }
-                        }
-                    },
-                    "location": {"index": i}
+    form = {"info": {"title": title}}
+    result = service.forms().create(body=form).execute()
+    
+    requests_list = [{
+        "createItem": {
+            "item": {
+                "title": q["text"],
+                "questionItem": {
+                    "question": {
+                        "required": q.get("required", False),
+                        "textQuestion": {}
+                    }
                 }
-            })
-        
-        if requests:
-            service.forms().batchUpdate(
-                formId=result["formId"],
-                body={"requests": requests}
-            ).execute()
-
-        drive_service = build('drive', 'v3', credentials=service._credentials)
-        drive_service.permissions().create(
-            fileId=result["formId"],
-            body={"role": "reader", "type": "anyone"},
-            fields="id"
+            },
+            "location": {"index": i}
+        }
+    } for i, q in enumerate(questions) if q["text"]]
+    
+    if requests_list:
+        service.forms().batchUpdate(
+            formId=result["formId"],
+            body={"requests": requests_list}
         ).execute()
-        
-        return f"https://docs.google.com/forms/d/{result['formId']}/edit"
-    except Exception as e:
-        st.error(f"Form creation error: {str(e)}")
-        return None
+    
+    drive = build('drive', 'v3', credentials=service._credentials)
+    drive.permissions().create(
+        fileId=result["formId"],
+        body={"role": "reader", "type": "anyone"}
+    ).execute()
+    
+    return f"https://docs.google.com/forms/d/{result['formId']}/edit"
 
 def create_google_sheet(service, title, headers):
-    try:
-        spreadsheet = {
-            'properties': {'title': title},
-            'sheets': [{
-                'properties': {
-                    'title': 'Sheet1',
-                    'gridProperties': {'rowCount': 100, 'columnCount': len(headers)}
+    spreadsheet = {
+        'properties': {'title': title},
+        'sheets': [{
+            'properties': {
+                'title': 'Responses',
+                'gridProperties': {
+                    'rowCount': 100,
+                    'columnCount': len(headers)
                 }
-            }]
-        }
-        
-        spreadsheet = service.spreadsheets().create(body=spreadsheet).execute()
-        
-        if headers:
-            body = {"values": [headers]}
-            service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet['spreadsheetId'],
-                range="A1",
-                valueInputOption="USER_ENTERED",
-                body=body
-            ).execute()
+            }
+        }]
+    }
+    
+    spreadsheet = service.spreadsheets().create(body=spreadsheet).execute()
+    
+    service.spreadsheets().values().update(
+        spreadsheetId=spreadsheet['spreadsheetId'],
+        range="A1",
+        valueInputOption="USER_ENTERED",
+        body={"values": [headers]}
+    ).execute()
+    
+    drive = build('drive', 'v3', credentials=service._credentials)
+    drive.permissions().create(
+        fileId=spreadsheet['spreadsheetId'],
+        body={"role": "writer", "type": "anyone"}
+    ).execute()
+    
+    return f"https://docs.google.com/spreadsheets/d/{spreadsheet['spreadsheetId']}/edit"
 
-        drive_service = build('drive', 'v3', credentials=service._credentials)
-        drive_service.permissions().create(
-            fileId=spreadsheet['spreadsheetId'],
-            body={"role": "writer", "type": "anyone"},
-            fields="id"
-        ).execute()
-        
-        return f"https://docs.google.com/spreadsheets/d/{spreadsheet['spreadsheetId']}/edit"
-    except Exception as e:
-        st.error(f"Sheet creation error: {str(e)}")
-        return None
 
-# ===================== STREAMLIT UI =====================
 def main():
     st.set_page_config(
         page_title="Complete Workspace Creator",
@@ -200,6 +245,9 @@ def main():
     
     initialize_firebase()
     model = initialize_gemini()
+    
+    # Handle OAuth callback if present
+    handle_oauth_callback()
     
     if 'user' not in st.session_state:
         st.session_state.user = None
@@ -215,13 +263,16 @@ def main():
             st.markdown(f"""
                 **Logged in as:**
                 - Email: {st.session_state.user['email']}
-                - Session expires: {datetime.fromtimestamp(int(st.session_state.user['expiresIn']))}
+                - Session expires: {datetime.fromtimestamp(int(st.session_state.user.get('expires', 0)))}
             """)
             if st.button("Logout", type="primary"):
                 st.session_state.user = None
                 st.session_state.chat_history = []
                 st.rerun()
         else:
+            # Option for Google Sign-In
+            google_sign_in()
+            st.info("Or, login with Email/Password below:")
             with st.form("login_form"):
                 email = st.text_input("Email")
                 password = st.text_input("Password", type="password")
@@ -238,7 +289,7 @@ def main():
                                     'expiresIn': result['expiresIn']
                                 }
                                 st.rerun()
-
+    
     # Main Interface
     if st.session_state.user:
         try:
@@ -290,8 +341,10 @@ def main():
             if prompt := st.chat_input("Ask about form/sheet creation..."):
                 with st.spinner("Generating response..."):
                     st.session_state.chat_history.append({"role": "user", "content": prompt})
-                    context = """You are an AI assistant helping users create Google Forms and Sheets.
-                    You can help with form design, question formatting, and best practices."""
+                    context = (
+                        "You are an AI assistant helping users create Google Forms and Sheets.\n"
+                        "You can help with form design, question formatting, and best practices."
+                    )
                     response = model.generate_content(f"{context}\n\nUser: {prompt}")
                     st.session_state.chat_history.append({
                         "role": "assistant",
