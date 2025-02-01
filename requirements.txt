@@ -1,8 +1,6 @@
 streamlit
 google-generativeai
 google-api-python-client
+firebase-admin
 python-dotenv
-pyrebase4
-python-jwt
-requests-toolbelt
-cryptography
+requests
