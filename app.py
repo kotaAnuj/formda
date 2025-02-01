@@ -90,7 +90,8 @@ def get_google_services():
     sheets_service = build('sheets', 'v4', credentials=credentials)
     return forms_service, sheets_service
 
-# ===================== FIREBASE AUTH =====================#
+# ===================== FIREBASE AUTH =====================##
+
 def firebase_sign_in(email, password):
     try:
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_CONFIG['apiKey']}"
@@ -103,8 +104,11 @@ def firebase_sign_in(email, password):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as e:
-        error_msg = json.loads(e.response.text).get('error', {}).get('message', 'Unknown error')
+        error_data = json.loads(e.response.text)
+        error_msg = error_data.get('error', {}).get('message', 'Unknown error')
         st.error(f"Authentication failed: {error_msg}")
+        if error_msg == "INVALID_LOGIN_CREDENTIALS":
+            st.error("Double-check the email and password. Ensure the user exists in Firebase.")
         return None
     except Exception as e:
         st.error(f"Connection error: {str(e)}")
