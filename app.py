@@ -88,7 +88,7 @@ def create_google_sheet(service, title, headers):
         'sheets': [{
             'properties': {
                 'title': 'Sheet1',
-                'gridProperties": {'rowCount': 100, 'columnCount': len(headers)}
+                'gridProperties': {'rowCount': 100, 'columnCount': len(headers)}
             }
         }]
     }
@@ -115,6 +115,8 @@ def main():
         st.session_state.user = None
     if 'google_creds' not in st.session_state:
         st.session_state.google_creds = None
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
     
     # Authentication sidebar
     with st.sidebar:
@@ -127,6 +129,7 @@ def main():
             if st.button("Logout"):
                 st.session_state.user = None
                 st.session_state.google_creds = None
+                st.session_state.chat_history = []
                 st.experimental_rerun()
         else:
             email = st.text_input("Email")
@@ -173,17 +176,24 @@ def main():
     # Chat interface
     if st.session_state.user:
         st.header("AI Assistant")
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
         
+        # Display chat history
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
         
+        # Chat input
         if prompt := st.chat_input("Ask about form/sheet creation..."):
+            # Add user message to chat history
             st.session_state.chat_history.append({"role": "user", "content": prompt})
+            
+            # Generate AI response
             response = model.generate_content(prompt).text
+            
+            # Add AI response to chat history
             st.session_state.chat_history.append({"role": "assistant", "content": response})
+            
+            # Rerun to update the chat interface
             st.experimental_rerun()
 
 if __name__ == "__main__":
