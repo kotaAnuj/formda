@@ -90,16 +90,24 @@ def get_google_services():
     sheets_service = build('sheets', 'v4', credentials=credentials)
     return forms_service, sheets_service
 
-# ===================== FIREBASE AUTH =====================
+# ===================== FIREBASE AUTH =====================#
 def firebase_sign_in(email, password):
     try:
         url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={FIREBASE_WEB_CONFIG['apiKey']}"
-        data = {"email": email, "password": password, "returnSecureToken": True}
+        data = {
+            "email": email,
+            "password": password,
+            "returnSecureToken": True
+        }
         response = requests.post(url, json=data)
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.HTTPError as e:
+        error_msg = json.loads(e.response.text).get('error', {}).get('message', 'Unknown error')
+        st.error(f"Authentication failed: {error_msg}")
+        return None
     except Exception as e:
-        st.error(f"Authentication failed: {str(e)}")
+        st.error(f"Connection error: {str(e)}")
         return None
 
 # ===================== GOOGLE WORKSPACE =====================
