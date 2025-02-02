@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Your Firebase configuration (from your provided credentials)
+# Your Firebase configuration
 firebase_config = {
     "apiKey": "AIzaSyCadZIoYzIc_QhEkGjv86G4rjFwMASd5ig",
     "authDomain": "nothing-d3af4.firebaseapp.com",
@@ -18,9 +18,9 @@ html_code = f"""
 <!DOCTYPE html>
 <html>
   <head>
-    <!-- Load Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js"></script>
+    <!-- Load Firebase SDKs using compat versions -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script>
       // Initialize Firebase with your config
       const firebaseConfig = {firebase_config};
@@ -33,7 +33,7 @@ html_code = f"""
             .then((result) => {{
                 // Retrieve the Google access token
                 var token = result.credential.accessToken;
-                // For demonstration, display the token in the page
+                // For demonstration, display the token on the page
                 document.getElementById('token').innerText = 'Access Token: ' + token;
             }})
             .catch((error) => {{
