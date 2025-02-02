@@ -1,7 +1,7 @@
 import streamlit as st
 import base64
 
-# Firebase configuration (ensure these values are correct)
+# Firebase configuration (ensure these values match your Firebase project)
 firebase_config = {
     "apiKey": "AIzaSyCadZIoYzIc_QhEkGjv86G4rjFwMASd5ig",
     "authDomain": "nothing-d3af4.firebaseapp.com",
@@ -13,7 +13,7 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# Define the HTML content that initializes Firebase and provides a Google sign‑in button.
+# Define the HTML content that initializes Firebase and provides a Google sign-in button.
 html_code = f"""<!DOCTYPE html>
 <html>
   <head>
@@ -27,7 +27,7 @@ html_code = f"""<!DOCTYPE html>
       const firebaseConfig = {firebase_config};
       firebase.initializeApp(firebaseConfig);
       
-      // Function to trigger Google sign-in
+      // Function to trigger Google sign-in using a popup
       function googleSignIn() {{
           var provider = new firebase.auth.GoogleAuthProvider();
           firebase.auth().signInWithPopup(provider)
@@ -53,17 +53,17 @@ html_code = f"""<!DOCTYPE html>
 </html>
 """
 
-# Encode the HTML content as a base64 string
+# Encode the HTML content as a base64 string.
 b64_html = base64.b64encode(html_code.encode()).decode()
 
 # Create an iframe that loads the HTML from the base64 data URL.
-# The sandbox attribute is set to allow scripts and same-origin access.
+# Note: The sandbox attribute now includes "allow-popups" to enable the sign-in popup.
 iframe_code = f'''
-<iframe sandbox="allow-scripts allow-same-origin" 
+<iframe sandbox="allow-scripts allow-same-origin allow-popups" 
         style="width:100%; height:600px; border:none;" 
         src="data:text/html;base64,{b64_html}">
 </iframe>
 '''
 
-# Render the iframe in Streamlit
+# Render the iframe using st.markdown with unsafe_allow_html.
 st.markdown(iframe_code, unsafe_allow_html=True)
