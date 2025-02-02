@@ -155,10 +155,10 @@ server_thread.start()
 # Streamlit UI
 st.title("Firebase Authentication")
 st.write("Please use the authentication page that opened in a new tab.")
-st.info("If the page didn't open automatically, [click here](http://127.0.0.1:8000)")
+st.info("If the page didn't open automatically, [click here](http://127.0.0.1:5501/test/priestweb.html)")
 
 # Open the browser automatically
-webbrowser.open('http://127.0.0.1:8000')
+webbrowser.open('http://127.0.0.1:5501/test/priestweb.html')
 
 # Keep the Streamlit app running
 st.write("You can close this window after you're done.")
