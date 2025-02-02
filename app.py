@@ -1,7 +1,7 @@
 import streamlit as st
 import html
 
-# Your Firebase configuration
+# Firebase configuration (make sure these values are correct)
 firebase_config = {
     "apiKey": "AIzaSyCadZIoYzIc_QhEkGjv86G4rjFwMASd5ig",
     "authDomain": "nothing-d3af4.firebaseapp.com",
@@ -13,13 +13,14 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# Create the HTML code that loads Firebase and provides a Google sign‑in button.
+# HTML content to load Firebase and provide a Google sign-in button.
+# The code uses Firebase compat libraries for the namespaced API.
 html_code = f"""<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
     <title>Firebase Google Sign-In</title>
-    <!-- Load Firebase SDKs using compat versions for namespaced API -->
+    <!-- Load Firebase SDKs using compat versions -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script>
@@ -53,13 +54,13 @@ html_code = f"""<!DOCTYPE html>
 </html>
 """
 
-# Escape the HTML code so it can safely be included in the srcdoc attribute.
+# Escape the HTML so it can be safely included in the srcdoc attribute.
 encoded_html = html.escape(html_code, quote=True)
 
-# Create an iframe with a sandbox attribute that allows scripts and same-origin access.
+# Build an iframe element with the sandbox attribute that allows scripts and same-origin.
 iframe_code = f'''
 <iframe sandbox="allow-scripts allow-same-origin" style="width:100%; height:600px; border:none;" srcdoc="{encoded_html}"></iframe>
 '''
 
-# Render the iframe using st.markdown
+# Use st.markdown with unsafe_allow_html to embed the iframe.
 st.markdown(iframe_code, unsafe_allow_html=True)
