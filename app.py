@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import html
 
 # Your Firebase configuration
 firebase_config = {
@@ -13,9 +13,8 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# HTML snippet that initializes Firebase and triggers Google sign-in
-html_code = f"""
-<!DOCTYPE html>
+# Create the HTML code that initializes Firebase and provides a Google sign-in button.
+html_code = f"""<!DOCTYPE html>
 <html>
   <head>
     <!-- Load Firebase SDKs using compat versions -->
@@ -33,7 +32,7 @@ html_code = f"""
             .then((result) => {{
                 // Retrieve the Google access token
                 var token = result.credential.accessToken;
-                // For demonstration, display the token on the page
+                // Display the token on the page
                 document.getElementById('token').innerText = 'Access Token: ' + token;
             }})
             .catch((error) => {{
@@ -52,6 +51,13 @@ html_code = f"""
 </html>
 """
 
-# Embed the HTML/JS code into your Streamlit app.
-# Notice the "sandbox" parameter: it allows both scripts and same-origin, enabling web storage.
-components.html(html_code, height=500, sandbox="allow-scripts allow-same-origin")
+# Escape the HTML code so it can be safely used in the srcdoc attribute.
+encoded_html = html.escape(html_code, quote=True)
+
+# Build an iframe that includes the sandbox attribute.
+iframe_code = f'''
+<iframe sandbox="allow-scripts allow-same-origin" style="height:500px; width:100%;" srcdoc="{encoded_html}"></iframe>
+'''
+
+# Render the iframe via st.markdown.
+st.markdown(iframe_code, unsafe_allow_html=True)
