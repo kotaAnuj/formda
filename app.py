@@ -21,116 +21,131 @@ html_code = f"""
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Firebase Auth</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }}
+        
+        .auth-container {{
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }}
+        
+        .google-btn {{
+            background-color: #4285f4;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            transition: background-color 0.3s;
+        }}
+        
+        .google-btn:hover {{
+            background-color: #357abd;
+        }}
+        
+        .status-message {{
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }}
+        
+        .info {{
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }}
+        
+        .success {{
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }}
+        
+        .error {{
+            background-color: #ffebee;
+            color: #c62828;
+        }}
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-6 text-center">
-                <h2>Firebase Authentication</h2>
-                <div id="loginStatus" class="mt-3"></div>
-                <button id="loginButton" class="btn btn-primary mt-3">Login with Google</button>
-                <button id="logoutButton" class="btn btn-danger mt-3 d-none">Logout</button>
-            </div>
-        </div>
+    <div class="auth-container">
+        <h2>Firebase Authentication</h2>
+        <div id="status-message" class="status-message info">Please log in</div>
+        <button id="google-login" class="google-btn">
+            Login with Google
+        </button>
     </div>
 
-    <script type="module">
-        // Wait for DOM to be fully loaded
-        document.addEventListener('DOMContentLoaded', async () => {{
-            try {{
-                // Import Firebase modules
-                const {{ initializeApp }} = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js');
-                const {{ 
-                    getAuth, 
-                    signInWithPopup, 
-                    GoogleAuthProvider,
-                    onAuthStateChanged,
-                    signOut 
-                }} = await import('https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js');
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
 
-                // Initialize Firebase
-                const firebaseConfig = {firebase_config_json};
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const provider = new GoogleAuthProvider();
+    <script>
+        // Initialize Firebase
+        const firebaseConfig = {firebase_config_json};
+        firebase.initializeApp(firebaseConfig);
 
-                // Get DOM elements
-                const loginButton = document.getElementById('loginButton');
-                const logoutButton = document.getElementById('logoutButton');
-                const loginStatus = document.getElementById('loginStatus');
+        // Get DOM elements
+        const loginButton = document.getElementById('google-login');
+        const statusMessage = document.getElementById('status-message');
 
-                let isAuthInProgress = false;
+        // Set up Google Auth Provider
+        const provider = new firebase.auth.GoogleAuthProvider();
 
-                // Login function with debounce
-                loginButton.addEventListener('click', async () => {{
-                    if (isAuthInProgress) return;
-                    
-                    try {{
-                        isAuthInProgress = true;
-                        loginStatus.innerHTML = '<div class="alert alert-info">Logging in...</div>';
-                        loginButton.disabled = true;
-                        
-                        const result = await signInWithPopup(auth, provider);
-                        console.log('Login successful:', result.user.email);
-                    }} catch (error) {{
-                        console.error('Login error:', error);
-                        if (error.code === 'auth/cancelled-popup-request') {{
-                            loginStatus.innerHTML = '<div class="alert alert-warning">Login cancelled. Please try again.</div>';
-                        }} else if (error.code === 'auth/popup-blocked') {{
-                            loginStatus.innerHTML = '<div class="alert alert-warning">Popup blocked. Please allow popups for this site.</div>';
-                        }} else {{
-                            loginStatus.innerHTML = `<div class="alert alert-danger">Login error: ${{error.message}}</div>`;
-                        }}
-                    }} finally {{
-                        isAuthInProgress = false;
-                        loginButton.disabled = false;
-                    }}
+        // Handle login
+        loginButton.addEventListener('click', () => {{
+            statusMessage.textContent = 'Initiating login...';
+            statusMessage.className = 'status-message info';
+            
+            firebase.auth().signInWithPopup(provider)
+                .then((result) => {{
+                    const user = result.user;
+                    statusMessage.textContent = `Welcome, ${{user.email}}!`;
+                    statusMessage.className = 'status-message success';
+                    loginButton.textContent = 'Logout';
+                }})
+                .catch((error) => {{
+                    console.error('Auth Error:', error);
+                    statusMessage.textContent = `Error: ${{error.message}}`;
+                    statusMessage.className = 'status-message error';
                 }});
+        }});
 
-                // Logout function
-                logoutButton.addEventListener('click', async () => {{
-                    try {{
-                        await signOut(auth);
-                        console.log('Logout successful');
-                    }} catch (error) {{
-                        console.error('Logout error:', error);
-                        loginStatus.innerHTML = `<div class="alert alert-danger">Logout error: ${{error.message}}</div>`;
-                    }}
-                }});
-
-                // Auth state observer
-                onAuthStateChanged(auth, (user) => {{
-                    if (user) {{
-                        loginStatus.innerHTML = `
-                            <div class="alert alert-success">
-                                <img src="${{user.photoURL}}" alt="Profile" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;">
-                                Logged in as: ${{user.email}}
-                            </div>
-                        `;
-                        loginButton.classList.add('d-none');
-                        logoutButton.classList.remove('d-none');
-                    }} else {{
-                        loginStatus.innerHTML = '<div class="alert alert-warning">Not logged in</div>';
-                        loginButton.classList.remove('d-none');
-                        logoutButton.classList.add('d-none');
-                    }}
-                }});
-
-            }} catch (error) {{
-                console.error('Firebase initialization error:', error);
-                document.getElementById('loginStatus').innerHTML = 
-                    '<div class="alert alert-danger">Failed to initialize Firebase. Please check your configuration.</div>';
+        // Auth state observer
+        firebase.auth().onAuthStateChanged((user) => {{
+            if (user) {{
+                statusMessage.textContent = `Logged in as: ${{user.email}}`;
+                statusMessage.className = 'status-message success';
+                loginButton.textContent = 'Logout';
+            }} else {{
+                statusMessage.textContent = 'Please log in';
+                statusMessage.className = 'status-message info';
+                loginButton.textContent = 'Login with Google';
             }}
         }});
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 """
 
-# Streamlit app
+# Set up Streamlit page
 st.set_page_config(page_title="Firebase Auth", layout="wide")
 
 # Convert HTML to base64
@@ -139,8 +154,8 @@ b64_html = base64.b64encode(html_code.encode()).decode()
 # Create iframe with necessary permissions
 iframe_code = f'''
     <iframe 
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        style="width:100%; height:600px; border:none;"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals"
+        style="width:100%; height:100vh; border:none;"
         src="data:text/html;base64,{b64_html}"
     ></iframe>
 '''
@@ -152,6 +167,10 @@ st.markdown("""
         footer {visibility: hidden;}
         header {visibility: hidden;}
         .stApp {
+            margin: 0;
+            padding: 0;
+        }
+        iframe {
             margin: 0;
             padding: 0;
         }
