@@ -1,5 +1,6 @@
 import streamlit as st
 import base64
+import json
 
 # Firebase configuration (ensure these values match your Firebase project)
 firebase_config = {
@@ -13,6 +14,9 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
+# Convert the firebase_config dictionary to a JSON string
+firebase_config_json = json.dumps(firebase_config)
+
 # Define the HTML content that initializes Firebase and provides a Google sign-in button.
 html_code = f"""<!DOCTYPE html>
 <html>
@@ -24,7 +28,7 @@ html_code = f"""<!DOCTYPE html>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script>
       // Initialize Firebase with your configuration
-      const firebaseConfig = {firebase_config};
+      const firebaseConfig = {firebase_config_json};
       firebase.initializeApp(firebaseConfig);
       
       // Function to trigger Google sign-in using a popup
