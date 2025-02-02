@@ -1,7 +1,7 @@
 import streamlit as st
-import html
+import base64
 
-# Firebase configuration (make sure these values are correct)
+# Firebase configuration (ensure these values are correct)
 firebase_config = {
     "apiKey": "AIzaSyCadZIoYzIc_QhEkGjv86G4rjFwMASd5ig",
     "authDomain": "nothing-d3af4.firebaseapp.com",
@@ -13,8 +13,7 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# HTML content to load Firebase and provide a Google sign-in button.
-# The code uses Firebase compat libraries for the namespaced API.
+# Define the HTML content that initializes Firebase and provides a Google sign‑in button.
 html_code = f"""<!DOCTYPE html>
 <html>
   <head>
@@ -36,11 +35,11 @@ html_code = f"""<!DOCTYPE html>
                 // Retrieve the Google access token
                 var token = result.credential.accessToken;
                 // Display the token on the page
-                document.getElementById('token').innerText = 'Access Token: ' + token;
+                document.getElementById("token").innerText = "Access Token: " + token;
             }})
             .catch((error) => {{
-                console.error('Error during sign-in:', error);
-                document.getElementById('token').innerText = 'Error: ' + error.message;
+                console.error("Error during sign-in:", error);
+                document.getElementById("token").innerText = "Error: " + error.message;
             }});
       }}
     </script>
@@ -54,13 +53,17 @@ html_code = f"""<!DOCTYPE html>
 </html>
 """
 
-# Escape the HTML so it can be safely included in the srcdoc attribute.
-encoded_html = html.escape(html_code, quote=True)
+# Encode the HTML content as a base64 string
+b64_html = base64.b64encode(html_code.encode()).decode()
 
-# Build an iframe element with the sandbox attribute that allows scripts and same-origin.
+# Create an iframe that loads the HTML from the base64 data URL.
+# The sandbox attribute is set to allow scripts and same-origin access.
 iframe_code = f'''
-<iframe sandbox="allow-scripts allow-same-origin" style="width:100%; height:600px; border:none;" srcdoc="{encoded_html}"></iframe>
+<iframe sandbox="allow-scripts allow-same-origin" 
+        style="width:100%; height:600px; border:none;" 
+        src="data:text/html;base64,{b64_html}">
+</iframe>
 '''
 
-# Use st.markdown with unsafe_allow_html to embed the iframe.
+# Render the iframe in Streamlit
 st.markdown(iframe_code, unsafe_allow_html=True)
