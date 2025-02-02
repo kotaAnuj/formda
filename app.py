@@ -13,11 +13,11 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# Create the HTML code that initializes Firebase and provides a Google sign-in button.
+# Create the HTML code that includes your Google sign-in function.
 html_code = f"""<!DOCTYPE html>
 <html>
   <head>
-    <!-- Load Firebase SDKs using compat versions -->
+    <!-- Load Firebase SDKs using compat versions for namespaced API -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script>
@@ -51,13 +51,13 @@ html_code = f"""<!DOCTYPE html>
 </html>
 """
 
-# Escape the HTML code so it can be safely used in the srcdoc attribute.
+# Escape the HTML for safe inclusion in the srcdoc attribute.
 encoded_html = html.escape(html_code, quote=True)
 
-# Build an iframe that includes the sandbox attribute.
+# Build an iframe with a sandbox attribute that allows scripts and same-origin.
 iframe_code = f'''
 <iframe sandbox="allow-scripts allow-same-origin" style="height:500px; width:100%;" srcdoc="{encoded_html}"></iframe>
 '''
 
-# Render the iframe via st.markdown.
+# Render the iframe using st.markdown.
 st.markdown(iframe_code, unsafe_allow_html=True)
