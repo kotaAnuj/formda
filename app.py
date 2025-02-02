@@ -1,5 +1,6 @@
 import streamlit as st
 import base64
+import json  # Added missing import
 
 # Firebase configuration (ensure these values match your Firebase project)
 firebase_config = {
@@ -13,20 +14,34 @@ firebase_config = {
     "measurementId": "G-JNLGNYK8DM"
 }
 
+# Set page configuration
+st.set_page_config(
+    page_title="Priest Dashboard",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # Convert the firebase_config dictionary to a JSON string
 firebase_config_json = json.dumps(firebase_config)
 
 # Define the HTML content for the dashboard
 html_code = f"""<!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Priest Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        #sidebar-wrapper {{
+            min-height: 100vh;
+            width: 250px;
+        }}
+        .primary-text {{
+            color: #0d6efd;
+        }}
+    </style>
 </head>
 
 <body>
@@ -60,7 +75,7 @@ html_code = f"""<!DOCTYPE html>
                     <button class="btn btn-primary" id="menu-toggle">Toggle Menu</button>
                 </nav>
                 <div class="container-fluid px-4">
-                    <h2 class="mt-4">Today’s Orders</h2>
+                    <h2 class="mt-4">Today's Orders</h2>
                     <div id="orders-container" class="row mt-4"></div>
                     <h2 class="mt-4">Order History</h2>
                     <div id="history-container" class="row mt-4"></div>
@@ -94,18 +109,22 @@ html_code = f"""<!DOCTYPE html>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <script type="module">
         import {{ initializeApp }} from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js';
         import {{ getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged }} from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
         import {{ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot }} from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
 
         const firebaseConfig = {firebase_config_json};
-
+        
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
+        // DOM Elements
         const loginScreen = document.getElementById('login-screen');
         const dashboard = document.getElementById('dashboard');
         const loginButton = document.getElementById('login-button');
@@ -119,9 +138,17 @@ html_code = f"""<!DOCTYPE html>
         const profilePhotoInput = document.getElementById('profile-photo');
         const ordersContainer = document.getElementById('orders-container');
         const historyContainer = document.getElementById('history-container');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarWrapper = document.getElementById('sidebar-wrapper');
 
         let currentUser = null;
 
+        // Toggle sidebar
+        menuToggle.addEventListener('click', () => {{
+            sidebarWrapper.classList.toggle('d-none');
+        }});
+
+        // Authentication listeners
         loginButton.addEventListener('click', async () => {{
             try {{
                 const result = await signInWithPopup(auth, provider);
@@ -143,6 +170,7 @@ html_code = f"""<!DOCTYPE html>
             }}
         }});
 
+        // Profile management
         editProfileButton.addEventListener('click', () => {{
             if (currentUser) {{
                 profileNameInput.value = priestName.textContent;
@@ -168,6 +196,7 @@ html_code = f"""<!DOCTYPE html>
             }}
         }});
 
+        // Auth state observer
         onAuthStateChanged(auth, async (user) => {{
             if (user) {{
                 currentUser = user;
@@ -179,6 +208,7 @@ html_code = f"""<!DOCTYPE html>
             }}
         }});
 
+        // Helper functions
         const loadUserProfile = async (uid) => {{
             try {{
                 const userRef = doc(db, 'users', uid);
@@ -188,9 +218,12 @@ html_code = f"""<!DOCTYPE html>
                     priestName.textContent = userData.name;
                     priestPhoto.src = userData.photo;
                 }} else {{
-                    await setDoc(userRef, {{ name: currentUser.displayName, photo: currentUser.photoURL }});
-                    priestName.textContent = currentUser.displayName;
-                    priestPhoto.src = currentUser.photoURL;
+                    await setDoc(userRef, {{ 
+                        name: currentUser.displayName || 'New User', 
+                        photo: currentUser.photoURL || 'https://via.placeholder.com/100' 
+                    }});
+                    priestName.textContent = currentUser.displayName || 'New User';
+                    priestPhoto.src = currentUser.photoURL || 'https://via.placeholder.com/100';
                 }}
                 switchToDashboard();
             }} catch (error) {{
@@ -200,20 +233,20 @@ html_code = f"""<!DOCTYPE html>
 
         const loadOrders = () => {{
             const bookingsRef = collection(db, 'bookings');
+            const today = new Date().toISOString().split('T')[0];
 
-            onSnapshot(bookingsRef, (snapshot) => {{
+            onSnapshot(query(bookingsRef, where('date', '==', today)), (snapshot) => {{
                 ordersContainer.innerHTML = '';
                 snapshot.forEach((doc) => {{
                     const booking = doc.data();
-                    const cartItems = booking.cartItems || [];
-
-                    cartItems.forEach((item) => {{
-                        if (!booking.accepted) {{
+                    if (!booking.accepted) {{
+                        const cartItems = booking.cartItems || [];
+                        cartItems.forEach((item) => {{
                             const col = document.createElement('div');
                             col.className = 'col-md-4 mb-4';
                             col.innerHTML = `
                                 <div class="card p-3 shadow-sm">
-                                    <img src="${{item.image || ''}}" alt="${{item.title || 'No title'}}" class="img-fluid mb-2">
+                                    <img src="${{item.image || 'https://via.placeholder.com/150'}}" alt="${{item.title || 'No title'}}" class="img-fluid mb-2">
                                     <h5>${{item.title || 'No title'}}</h5>
                                     <p>${{item.description || 'No description available'}}</p>
                                     <p><strong>Price:</strong> ${{item.price || 'N/A'}}</p>
@@ -221,12 +254,12 @@ html_code = f"""<!DOCTYPE html>
                                     <p><strong>Time:</strong> ${{booking.time || 'N/A'}}</p>
                                     <p><strong>Location:</strong> ${{booking.location || 'N/A'}}</p>
                                     <p><strong>Contact:</strong> <em>Visible upon acceptance</em></p>
-                                    <button class="btn btn-primary btn-sm" onclick="acceptOrder('${{doc.id}}')">Accept</button>
+                                    <button class="btn btn-primary btn-sm" onclick="window.acceptOrder('${{doc.id}}')">Accept</button>
                                 </div>
                             `;
                             ordersContainer.appendChild(col);
-                        }}
-                    }});
+                        }});
+                    }}
                 }});
             }});
         }};
@@ -238,15 +271,14 @@ html_code = f"""<!DOCTYPE html>
                 historyContainer.innerHTML = '';
                 snapshot.forEach((doc) => {{
                     const booking = doc.data();
-                    const cartItems = booking.cartItems || [];
-
                     if (booking.accepted) {{
+                        const cartItems = booking.cartItems || [];
                         cartItems.forEach((item) => {{
                             const col = document.createElement('div');
                             col.className = 'col-md-4 mb-4';
                             col.innerHTML = `
                                 <div class="card p-3 shadow-sm">
-                                    <img src="${{item.image || ''}}" alt="${{item.title || 'No title'}}" class="img-fluid mb-2">
+                                    <img src="${{item.image || 'https://via.placeholder.com/150'}}" alt="${{item.title || 'No title'}}" class="img-fluid mb-2">
                                     <h5>${{item.title || 'No title'}}</h5>
                                     <p>${{item.description || 'No description available'}}</p>
                                     <p><strong>Price:</strong> ${{item.price || 'N/A'}}</p>
@@ -273,6 +305,7 @@ html_code = f"""<!DOCTYPE html>
             dashboard.classList.remove('d-none');
         }};
 
+        // Make functions available to the window object for button onclick handlers
         window.acceptOrder = async (orderId) => {{
             try {{
                 const orderRef = doc(db, 'bookings', orderId);
@@ -292,26 +325,66 @@ html_code = f"""<!DOCTYPE html>
             }} catch (error) {{
                 console.error('Reject Order Error:', error);
                 Swal.fire('Error', 'Failed to reject the order.', 'error');
-            }}
-        }};
+            }};
     </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-
 </html>
 """
 
-# Encode the HTML content as a base64 string.
+# Add custom CSS to handle iframe sizing
+st.markdown("""
+    <style>
+        .stApp {
+            margin: 0;
+            padding: 0;
+        }
+        iframe {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Encode the HTML content as a base64 string
 b64_html = base64.b64encode(html_code.encode()).decode()
 
-# Create an iframe that loads the HTML from the base64 data URL.
+# Create an iframe that loads the HTML from the base64 data URL
 iframe_code = f'''
-<iframe sandbox="allow-scripts allow-same-origin allow-popups" 
-        style="width:100%; height:100vh; border:none;" 
-        src="data:text/html;base64,{b64_html}">
-</iframe>
+    <iframe 
+        sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms allow-downloads" 
+        style="width:100vw; height:100vh; border:none;" 
+        src="data:text/html;base64,{b64_html}"
+    >
+    </iframe>
 '''
 
-# Render the iframe using st.markdown with unsafe_allow_html.
+# Hide Streamlit default elements
+hide_streamlit_style = """
+    <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Render the iframe
 st.markdown(iframe_code, unsafe_allow_html=True)
+
+# Add error handling
+try:
+    # Check if Firebase config is valid
+    if not all(firebase_config.values()):
+        st.error("Firebase configuration is incomplete. Please check your configuration.")
+except Exception as e:
+    st.error(f"An error occurred: {str(e)}")
+
+# Optional: Add session state management
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+
+if 'current_user' not in st.session_state:
+    st.session_state.current_user = None
