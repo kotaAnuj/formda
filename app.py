@@ -2,7 +2,19 @@ import streamlit as st
 import base64
 
 # Firebase configuration (ensure these values match your Firebase project)
+firebase_config = {
+    "apiKey": "AIzaSyC6YllFBzRnUjFfIJhGjIkwMlGELuKs9YQ",
+    "authDomain": "nothing-d3af4.firebaseapp.com",
+    "databaseURL": "https://nothing-d3af4-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "projectId": "nothing-d3af4",
+    "storageBucket": "nothing-d3af4.firebasestorage.app",
+    "messagingSenderId": "7155955115",
+    "appId": "1:7155955115:web:62e7e9a543ba2f77dc8eee",
+    "measurementId": "G-JNLGNYK8DM"
+}
 
+# Convert the firebase_config dictionary to a JSON string
+firebase_config_json = json.dumps(firebase_config)
 
 # Define the HTML content for the dashboard
 html_code = f"""<!DOCTYPE html>
@@ -87,17 +99,7 @@ html_code = f"""<!DOCTYPE html>
         import {{ getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged }} from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-auth.js';
         import {{ getFirestore, doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot }} from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyC6YllFBzRnUjFfIJhGjIkwMlGELuKs9YQ",
-            authDomain: "nothing-d3af4.firebaseapp.com",
-            databaseURL: "https://nothing-d3af4-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "nothing-d3af4",
-            storageBucket: "nothing-d3af4.firebasestorage.app",
-            messagingSenderId: "7155955115",
-            appId: "1:7155955115:web:62e7e9a543ba2f77dc8eee",
-            measurementId: "G-JNLGNYK8DM"
-        };
-
+        const firebaseConfig = {firebase_config_json};
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
