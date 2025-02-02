@@ -48,7 +48,6 @@ html_content = f"""
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
-            margin: 10px;
         }}
         button:hover {{
             background-color: #357abd;
@@ -65,7 +64,6 @@ html_content = f"""
         <h2>Firebase Authentication</h2>
         <div id="status"></div>
         <button id="loginBtn">Login with Google</button>
-        <button id="logoutBtn" style="display: none;">Logout</button>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -77,7 +75,6 @@ html_content = f"""
 
         const auth = firebase.auth();
         const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
         const status = document.getElementById('status');
 
         loginBtn.addEventListener('click', () => {{
@@ -88,6 +85,7 @@ html_content = f"""
                     status.style.backgroundColor = '#e8f5e9';
                     status.style.color = '#2e7d32';
                     status.textContent = `Logged in as: ${{result.user.email}}`;
+                    loginBtn.textContent = 'Logout';
                 }})
                 .catch((error) => {{
                     console.error('Login error:', error);
@@ -97,31 +95,17 @@ html_content = f"""
                 }});
         }});
 
-        logoutBtn.addEventListener('click', () => {{
-            auth.signOut().then(() => {{
-                console.log('Logged out');
-                status.style.backgroundColor = '#e3f2fd';
-                status.style.color = '#1976d2';
-                status.textContent = 'Please log in';
-            }}).catch((error) => {{
-                console.error('Logout error:', error);
-                status.textContent = `Error: ${{error.message}}`;
-            }});
-        }});
-
         auth.onAuthStateChanged((user) => {{
             if (user) {{
                 status.style.backgroundColor = '#e8f5e9';
                 status.style.color = '#2e7d32';
                 status.textContent = `Logged in as: ${{user.email}}`;
-                loginBtn.style.display = 'none';
-                logoutBtn.style.display = 'inline-block';
+                loginBtn.textContent = 'Logout';
             }} else {{
                 status.style.backgroundColor = '#e3f2fd';
                 status.style.color = '#1976d2';
                 status.textContent = 'Please log in';
-                loginBtn.style.display = 'inline-block';
-                logoutBtn.style.display = 'none';
+                loginBtn.textContent = 'Login with Google';
             }}
         }});
     </script>
@@ -134,18 +118,13 @@ with open("login.html", "w") as f:
     f.write(html_content)
 
 class CustomHandler(SimpleHTTPRequestHandler):
-    def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        SimpleHTTPRequestHandler.end_headers(self)
-
     def do_GET(self):
         if self.path == '/':
             self.path = '/login.html'
         return SimpleHTTPRequestHandler.do_GET(self)
 
 def run_server():
-    server = HTTPServer(('127.0.0.1', 8000), CustomHandler)
-    print("Server started at http://127.0.0.1:8000")
+    server = HTTPServer(('localhost', 8000), CustomHandler)
     server.serve_forever()
 
 # Start the server in a separate thread
@@ -155,10 +134,10 @@ server_thread.start()
 # Streamlit UI
 st.title("Firebase Authentication")
 st.write("Please use the authentication page that opened in a new tab.")
-st.info("If the page didn't open automatically, [click here](http://127.0.0.1:5501/test/priestweb.html)")
+st.info("If the page didn't open automatically, [click here](http://localhost:8000)")
 
 # Open the browser automatically
-webbrowser.open('http://127.0.0.1:5501/test/priestweb.html')
+webbrowser.open('http://localhost:8000')
 
 # Keep the Streamlit app running
 st.write("You can close this window after you're done.")
