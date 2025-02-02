@@ -13,7 +13,7 @@ firebase_config = {
     "measurementId": "G-XSVGL2M8LL"
 }
 
-# Create an HTML snippet that initializes Firebase and triggers Google sign-in
+# HTML snippet that initializes Firebase and triggers Google sign-in
 html_code = f"""
 <!DOCTYPE html>
 <html>
@@ -52,5 +52,6 @@ html_code = f"""
 </html>
 """
 
-# Embed the HTML/JS code into your Streamlit app
-components.html(html_code, height=500)
+# Embed the HTML/JS code into your Streamlit app.
+# Notice the "sandbox" parameter: it allows both scripts and same-origin, enabling web storage.
+components.html(html_code, height=500, sandbox="allow-scripts allow-same-origin")
